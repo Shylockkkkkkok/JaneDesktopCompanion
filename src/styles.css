@@ -1,0 +1,1577 @@
+/* ─────────────────────────────────────────────────────────────
+   JANE — transparent desktop companion
+   The window itself is transparent; the webview must not paint
+   any background or the "floating on the desktop" effect breaks.
+   ───────────────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  user-select: none;
+  -webkit-user-select: none;
+  font-family:
+    "Segoe UI",
+    "Microsoft YaHei",
+    "PingFang SC",
+    system-ui,
+    sans-serif;
+}
+
+.app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+/* ── Character area ──────────────────────────────────────── */
+
+.character-area {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  background: transparent;
+}
+
+/* Root: hover target + drag region. Flex keeps it bottom-centred, so
+   its `transform` stays free for the hover reaction. */
+.character {
+  cursor: grab;
+  transform-origin: bottom center;
+  transition: transform 0.25s ease;
+  will-change: transform;
+}
+
+.character:active {
+  cursor: grabbing;
+}
+
+.character--hover {
+  transform: translateY(-3px) scale(1.02);
+}
+
+/* Idle layer (breathing / sway / tilt) — nested so it composes with the
+   hover + reaction transforms instead of overwriting them. */
+.character__idle {
+  transform-origin: bottom center;
+}
+
+.character__idle--breathe {
+  animation: idle-breathe 1.4s ease-in-out;
+}
+
+.character__idle--sway {
+  animation: idle-sway 1.6s ease-in-out;
+}
+
+.character__idle--tilt {
+  animation: idle-tilt 1.3s ease-in-out;
+}
+
+/* Reaction layer (click bursts). */
+.character__reaction {
+  transform-origin: bottom center;
+}
+
+.character__reaction--scale {
+  animation: react-scale 0.65s ease-out;
+}
+
+.character__reaction--tilt {
+  animation: react-tilt 0.65s ease-out;
+}
+
+.character__reaction--nudge {
+  animation: react-nudge 0.65s ease-out;
+}
+
+.character__reaction--shake {
+  animation: react-shake 0.65s ease-out;
+}
+
+.character__reaction--bounce {
+  animation: react-bounce 0.65s ease-out;
+}
+
+.character__image {
+  display: block;
+  width: auto;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+/* ── Idle keyframes ──────────────────────────────────────── */
+
+@keyframes idle-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes idle-sway {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  40% {
+    transform: rotate(1.4deg);
+  }
+  70% {
+    transform: rotate(-1.2deg);
+  }
+}
+
+@keyframes idle-tilt {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+}
+
+/* ── Reaction keyframes ──────────────────────────────────── */
+
+@keyframes react-scale {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes react-tilt {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  30% {
+    transform: rotate(-3deg);
+  }
+  70% {
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes react-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  30% {
+    transform: translateX(5px);
+  }
+  70% {
+    transform: translateX(-5px);
+  }
+}
+
+@keyframes react-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes react-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-7px);
+  }
+  70% {
+    transform: translateY(0);
+  }
+  85% {
+    transform: translateY(-3px);
+  }
+}
+
+/* ── Speech bubble ───────────────────────────────────────── */
+
+/* Dedicated overlay window (label "bubble"). Content is anchored to the
+   edge nearest Jane: below when the bubble floats above her, right/left
+   edge when it sits beside her. */
+
+.bubble-stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  pointer-events: none;
+}
+
+.bubble-stage--top {
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 4px;
+}
+
+.bubble-stage--left {
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 14px 8px 0 0;
+}
+
+.bubble-stage--right {
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 14px 0 0 8px;
+}
+
+.bubble-stage .speech-bubble {
+  position: static;
+  max-width: 240px;
+}
+
+.speech-bubble {
+  position: absolute;
+  max-width: 220px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  font-size: 13px;
+  line-height: 1.45;
+  color: #3a3a3a;
+  pointer-events: none;
+  animation: bubble-in 0.2s ease-out;
+}
+
+.speech-bubble--hiding {
+  animation: bubble-out 0.35s ease-in forwards;
+}
+
+.speech-bubble__text {
+  white-space: normal;
+  word-break: break-word;
+}
+
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bubble-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* ── Status toast (mode switch indicator) ────────────────── */
+
+.status-toast {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 12px;
+  border-radius: 999px;
+  pointer-events: none;
+  animation: bubble-in 0.15s ease-out;
+  white-space: nowrap;
+}
+
+/* ── Settings panel ──────────────────────────────────────── */
+
+.settings-panel {
+  --ink: #2f2a2b;
+  --muted: #84797b;
+  --rose: #bd646d;
+  --rose-soft: #f5e4e5;
+  --paper: #fbf8f4;
+  --line: rgba(83, 59, 62, 0.12);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 92% 0%, rgba(224, 164, 169, 0.2), transparent 38%),
+    linear-gradient(160deg, #fffdf9 0%, var(--paper) 62%, #f5efea 100%);
+  user-select: none;
+}
+
+.settings-panel__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.settings-panel__eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--rose);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+
+.settings-panel__header h1 {
+  margin: 0;
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.save-status {
+  min-width: 48px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: right;
+  transition: color 0.2s ease;
+}
+
+.save-status--saving { color: #a17a46; }
+.save-status--saved { color: #5d8069; }
+.save-status--error { color: #b4464e; }
+
+.save-status--saving::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: settings-pulse 0.9s ease-in-out infinite;
+}
+
+.settings-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 18px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(189, 100, 109, 0.3) transparent;
+}
+
+.settings-section {
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.65);
+  box-shadow: 0 8px 24px rgba(69, 48, 51, 0.045);
+}
+
+.settings-section__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.settings-section__heading span {
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-section__heading small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  min-height: 35px;
+  gap: 10px;
+  border-top: 1px solid rgba(83, 59, 62, 0.07);
+}
+
+.settings-section__heading + .settings-row {
+  border-top: 0;
+}
+
+.settings-row--stacked {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 5px;
+  padding: 5px 0 8px;
+}
+
+.settings-row__label {
+  flex: 1;
+  color: #51484a;
+  font-size: 12px;
+}
+
+.settings-row__control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-row input[type="range"] {
+  flex: 1;
+  height: 4px;
+  accent-color: var(--rose);
+}
+
+.settings-row__value {
+  flex: 0 0 42px;
+  text-align: right;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-row__segmented {
+  display: flex;
+  padding: 2px;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(104, 75, 78, 0.05);
+}
+
+.segmented {
+  min-width: 42px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.segmented--active {
+  color: #7f3e45;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(75, 48, 51, 0.1);
+}
+
+.toggle {
+  position: relative;
+  width: 34px;
+  height: 19px;
+  margin: 0;
+  appearance: none;
+  border: 1px solid rgba(77, 59, 61, 0.18);
+  border-radius: 999px;
+  background: #ded9d5;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(54, 39, 41, 0.2);
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.toggle:checked {
+  border-color: var(--rose);
+  background: var(--rose);
+}
+
+.toggle:checked::after { transform: translateX(15px); }
+.toggle:disabled { cursor: not-allowed; opacity: 0.42; }
+
+.settings-number {
+  width: 58px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  outline: none;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.8);
+  font: inherit;
+  font-size: 11px;
+  text-align: right;
+}
+
+.settings-number:focus,
+.segmented:focus-visible,
+.toggle:focus-visible {
+  outline: 2px solid rgba(189, 100, 109, 0.35);
+  outline-offset: 2px;
+}
+
+.settings-row__error {
+  color: #b9535f;
+  font-size: 9px;
+}
+
+.settings-panel__footer {
+  padding: 9px 18px 11px;
+  border-top: 1px solid var(--line);
+  color: #9a8f90;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+@keyframes settings-pulse {
+  50% { opacity: 0.3; transform: scale(0.8); }
+}
+
+/* ── Debug panel (dev only) ─────────────────────────────── */
+
+.debug-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  max-height: 90%;
+  overflow-y: auto;
+  padding: 10px 12px;
+  background: rgba(20, 20, 24, 0.9);
+  color: #eee;
+  font-size: 11px;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  z-index: 20;
+}
+
+.debug-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.debug-panel__header button {
+  border: none;
+  background: transparent;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.debug-panel__section {
+  margin-bottom: 8px;
+}
+
+.debug-panel__label {
+  display: block;
+  margin-bottom: 4px;
+  color: #aaa;
+}
+
+.debug-panel__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.debug-chip {
+  border: 1px solid #555;
+  background: transparent;
+  color: #ddd;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.debug-chip--active {
+  background: #e89a9a;
+  border-color: #e89a9a;
+  color: #1a1a1a;
+}
+
+.debug-toggle {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 20;
+  border: 1px solid #555;
+  background: rgba(20, 20, 24, 0.85);
+  color: #ddd;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.debug-toggles {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 20;
+  display: flex;
+  gap: 6px;
+}
+
+.debug-toggles .debug-toggle {
+  position: static;
+}
+
+.debug-panel__thumb {
+  width: 40px;
+  height: 56px;
+  object-fit: contain;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.debug-panel__section input[type="text"],
+.debug-panel__section input:not([type]) {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid #555;
+  color: #eee;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  width: 140px;
+}
+
+/* ── Photo cross-fade ───────────────────────────────────── */
+
+.character__photo {
+  display: block;
+  /* inline-block wrappers sit on the text baseline and silently lift the
+     whole figure ~4px above where the window geometry expects it — the
+     baseline gap must stay zero or the head gets clipped. */
+  line-height: 0;
+}
+
+/* ── Video action layer ─────────────────────────────────── */
+
+.character__video {
+  display: block;
+  line-height: 0;
+}
+
+.character__video-element {
+  display: block;
+  width: auto;
+  pointer-events: none;
+}
+
+.debug-slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.debug-slider input[type="range"] {
+  width: 140px;
+}
+
+.crossfade {
+  position: relative;
+  display: inline-block;
+}
+
+.crossfade__current,
+.crossfade__prev {
+  display: block;
+  width: auto;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.crossfade__current {
+  animation: crossfade-in 250ms ease-out;
+}
+
+.crossfade__prev {
+  position: absolute;
+  top: 0;
+  left: 0;
+  animation: crossfade-out 250ms ease-in forwards;
+}
+
+@keyframes crossfade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes crossfade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* ── Asset Lab ──────────────────────────────────────────── */
+
+.asset-lab {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: rgba(16, 16, 20, 0.97);
+  color: #eee;
+  font-size: 11px;
+  overflow: hidden;
+}
+
+.asset-lab__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #333;
+  font-weight: 600;
+}
+
+.asset-lab__header button {
+  border: none;
+  background: transparent;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.asset-lab__editor {
+  padding: 10px 12px;
+  border-bottom: 1px solid #333;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.asset-lab__preview-wrap {
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+}
+
+.asset-lab__preview {
+  max-height: 120px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.asset-lab__meta {
+  display: flex;
+  gap: 8px;
+  color: #bbb;
+}
+
+.asset-lab__id {
+  font-weight: 600;
+  color: #fff;
+}
+
+.asset-lab__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.asset-lab__row > span {
+  flex: 0 0 120px;
+  color: #ccc;
+}
+
+.asset-lab__row input[type="range"] {
+  flex: 1;
+  accent-color: #e89a9a;
+}
+
+.asset-lab__row input[type="text"],
+.asset-lab__row input:not([type]),
+.asset-lab__row select {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid #555;
+  color: #eee;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.asset-lab__row--toggle input[type="checkbox"] {
+  accent-color: #e89a9a;
+}
+
+.asset-lab__grid {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  align-content: flex-start;
+}
+
+.asset-thumb {
+  width: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 4px;
+  cursor: pointer;
+  color: #ccc;
+}
+
+.asset-thumb img {
+  width: 48px;
+  height: 60px;
+  object-fit: contain;
+}
+
+.asset-thumb span {
+  font-size: 9px;
+  max-width: 56px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-thumb--active {
+  border-color: #e89a9a;
+  color: #fff;
+}
+
+/* ── Focus timer ────────────────────────────────────────── */
+
+.focus-timer {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(20, 20, 24, 0.8);
+  padding: 6px 12px;
+  border-radius: 999px;
+  color: #eee;
+  font-size: 13px;
+}
+
+.focus-timer__time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.focus-timer__controls {
+  display: flex;
+  gap: 4px;
+}
+
+.focus-timer__controls button {
+  border: 1px solid #555;
+  background: transparent;
+  color: #ddd;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.focus-timer--hidden {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  border: 1px solid #555;
+  background: rgba(20, 20, 24, 0.7);
+  border-radius: 999px;
+  color: #ddd;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.focus-setup {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 26;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(20, 20, 24, 0.9);
+  border: 1px solid #444;
+  border-radius: 10px;
+  padding: 12px;
+  color: #eee;
+  font-size: 12px;
+}
+
+.focus-setup__label {
+  font-weight: 600;
+}
+
+.focus-setup__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.focus-setup__row input {
+  width: 80px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid #555;
+  color: #eee;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.focus-setup__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.focus-setup__actions button {
+  flex: 1;
+  border: 1px solid #555;
+  background: transparent;
+  color: #ddd;
+  padding: 4px 0;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* ── Focus complete popup ───────────────────────────────── */
+
+.focus-complete-popup {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  animation: crossfade-in 250ms ease-out;
+}
+
+.focus-complete-popup img {
+  max-width: 72%;
+  max-height: 72%;
+  object-fit: contain;
+}
+
+/* ── Today goals window ─────────────────────────────────── */
+
+.goals-window {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: #f8f7f5;
+  color: #333;
+  font-size: 13px;
+}
+
+.goals-window__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 14px 16px 8px;
+}
+
+.goals-window__title {
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.goals-window__count {
+  font-size: 12px;
+  color: #999;
+}
+
+.goals-window__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.goal-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+}
+
+.goal-item__check {
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  cursor: pointer;
+  color: #555;
+  padding: 0;
+}
+
+.goal-item__text {
+  flex: 1;
+  cursor: pointer;
+}
+
+.goal-item--done .goal-item__text {
+  text-decoration: line-through;
+  color: #bbb;
+}
+
+.goal-item__edit {
+  flex: 1;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 13px;
+}
+
+.goal-item__delete {
+  border: none;
+  background: transparent;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.goal-item__delete:hover {
+  color: #666;
+}
+
+.goals-window__add {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid #eee;
+}
+
+.goals-window__add input {
+  flex: 1;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.goals-window__add button {
+  border: 1px solid #e89a9a;
+  background: #e89a9a;
+  color: #fff;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ── Concert window ─────────────────────────────────────── */
+
+.concert-window {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: #f8f7f5;
+  color: #333;
+  font-size: 13px;
+  padding: 16px;
+}
+
+.concert-window__header {
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+}
+
+.concert-window__view {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.concert-window__date {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.concert-window__days {
+  font-size: 22px;
+  font-weight: 700;
+  color: #e89a9a;
+}
+
+.concert-window__city,
+.concert-window__note {
+  color: #666;
+}
+
+.concert-window__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.concert-window__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.concert-window__row span {
+  flex: 0 0 44px;
+  color: #666;
+}
+
+.concert-window__row input {
+  flex: 1;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.concert-window__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.concert-window__actions button {
+  flex: 1;
+  border: 1px solid #e89a9a;
+  background: #e89a9a;
+  color: #fff;
+  border-radius: 4px;
+  padding: 6px 0;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ── Timeline ("我见过 Jane") window ─────────────────────── */
+
+.timeline-window {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: #f8f7f5;
+  color: #333;
+  font-size: 13px;
+}
+
+.timeline-window__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 14px 16px 8px;
+}
+
+.timeline-window__title {
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.timeline-window__count {
+  font-size: 12px;
+  color: #999;
+}
+
+.timeline-window__suggest {
+  margin: 0 16px 8px;
+  padding: 10px 12px;
+  border: 1px solid #f2d5d5;
+  border-radius: 6px;
+  background: #fdf4f4;
+  color: #666;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.timeline-window__suggest-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.timeline-window__suggest-actions button,
+.timeline-window__add button {
+  border: 1px solid #e89a9a;
+  background: #e89a9a;
+  color: #fff;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.timeline-window__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.timeline-item:last-child {
+  border-bottom: none;
+}
+
+.timeline-item__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.timeline-item__date {
+  font-weight: 600;
+}
+
+.timeline-item__meta {
+  color: #999;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.timeline-item__note {
+  color: #666;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.timeline-item__buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.timeline-item__buttons button,
+.timeline-window__form .timeline-window__secondary,
+.timeline-window__suggest-actions .timeline-window__secondary {
+  border: none;
+  background: transparent;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+.timeline-item__buttons button:hover,
+.timeline-window__form .timeline-window__secondary:hover,
+.timeline-window__suggest-actions .timeline-window__secondary:hover {
+  color: #666;
+}
+
+.timeline-window__form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 16px;
+  border-top: 1px solid #eee;
+}
+
+.timeline-window__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline-window__row span {
+  flex: 0 0 44px;
+  color: #666;
+}
+
+.timeline-window__row input,
+.timeline-window__row select {
+  flex: 1;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.timeline-window__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.timeline-window__actions button:not(.timeline-window__secondary) {
+  border: 1px solid #e89a9a;
+  background: #e89a9a;
+  color: #fff;
+  border-radius: 4px;
+  padding: 5px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.timeline-window__actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.timeline-window__add {
+  padding: 10px 16px 14px;
+  border-top: 1px solid #eee;
+}
+
+/* ── Jane right-click context menu ──────────────────────── */
+
+.jane-context-menu {
+  position: fixed;
+  right: 10px;
+  bottom: 10px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #e5e2df;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.jane-context-menu button {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #444;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.jane-context-menu button:hover {
+  background: #f6eeec;
+}
+
+/* Groups intentionally have NO position:relative — submenus anchor to the
+   fixed menu itself and bottom-align with it, growing upward so they stay
+   inside the short transparent window no matter how many entries. */
+
+.jane-context-menu__group > button {
+  width: 100%;
+  text-align: left;
+}
+
+.jane-context-menu__submenu {
+  display: none;
+  position: absolute;
+  right: 100%;
+  bottom: 0;
+  min-width: 96px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #e5e2df;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  flex-direction: column;
+}
+
+/* Visibility is state-driven (JaneContextMenu openSubmenu), never :hover —
+   hover chains break when the pointer crosses the gap between a parent item
+   and its submenu. */
+.jane-context-menu__submenu--open {
+  display: flex;
+}
+
+.jane-context-menu__group--open > button {
+  background: #f6eeec;
+}
+
+.jane-context-menu__separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: #eee;
+}
+
+.jane-context-menu button:disabled {
+  color: #ccc;
+  cursor: default;
+  background: transparent;
+}
+
+/* ── Timeline cover images ──────────────────────────────── */
+
+.timeline-cover {
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex: 0 0 44px;
+  cursor: pointer;
+  border: 1px solid #e5e2df;
+  background: #fff;
+}
+
+.timeline-cover--form {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  cursor: default;
+}
+
+.timeline-cover--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #bbb;
+  cursor: default;
+}
+
+.timeline-window__cover-row {
+  align-items: flex-start;
+}
+
+.timeline-window__cover-row > span {
+  margin-top: 6px;
+}
+
+.timeline-window__cover-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.timeline-window__cover-actions button {
+  border: 1px solid #e89a9a;
+  background: #e89a9a;
+  color: #fff;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.timeline-window__cover-actions .timeline-window__secondary {
+  border: none;
+  background: transparent;
+  color: #ccc;
+}
+
+.timeline-window__cover-actions .timeline-window__secondary:hover {
+  color: #666;
+}
+
+.timeline-window__error {
+  margin: 0 16px 8px;
+  padding: 8px 12px;
+  border: 1px solid #f2c5c5;
+  border-radius: 6px;
+  background: #fdf1f1;
+  color: #a05555;
+  font-size: 12px;
+}
+
+.timeline-cover-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  cursor: zoom-out;
+}
+
+.timeline-cover-preview img {
+  max-width: 94%;
+  max-height: 94%;
+  border-radius: 4px;
+  object-fit: contain;
+}
+
+/* ── Look pose tabs live in the tray / right-click submenu now ── */
+
+.asset-lab__row--actions {
+  display: flex;
+  gap: 8px;
+}
+
+.asset-lab__row--actions button {
+  flex: 1;
+  border: 1px solid #e89a9a;
+  background: #fff;
+  color: #e89a9a;
+  border-radius: 4px;
+  padding: 4px 0;
+  font-size: 11px;
+  cursor: pointer;
+}
