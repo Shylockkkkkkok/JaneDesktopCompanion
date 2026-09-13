@@ -6,5 +6,7 @@ src-tauri/.cargo
 *.local
 .claude
 *.log
+*.exe
+installers/
 .DS_Store
 Thumbs.db
