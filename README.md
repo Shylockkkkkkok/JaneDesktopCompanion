@@ -2,7 +2,7 @@
 
 一个停留在 Windows 桌面上的珍姐陪伴体（V0.1）。
 
-TA不是一个普通软件窗口，而是一个**直接存在于桌面上的小人物**：背景透明、无边框、始终置顶、可拖动，会对鼠标悬停 / 点击 / 连续点击做出反应，偶尔通过气泡说一句话。
+TA不是一个常见的软件窗口，而是一个**直接存在于桌面上的小人物**：背景透明、无边框、始终置顶、可拖动，会对鼠标悬停 / 点击 / 连续点击做出反应，可以通过气泡说话
 
 ## 技术栈
 
@@ -62,7 +62,7 @@ npm install
 npm run tauri dev
 ```
 
-启动后，JANE 会出现在**主显示器右下角附近**，背景透明、始终置顶。
+启动后，会出现在**主显示器右下角附近**，背景透明、始终置顶。
 
 ### 快捷键
 
@@ -72,7 +72,7 @@ npm run tauri dev
 
 ### 系统托盘
 
-右键托盘图标 `JANE`：
+右键托盘图标 `Dear Jane`：
 
 - **互动模式** / **鼠标穿透** — 切换鼠标是否穿透
 - **显示 / 隐藏** — 控制 JANE 是否显示
@@ -102,18 +102,6 @@ src/assets/character-placeholder.png
 
 替换后无需改代码，重启应用即可生效。程序显示高度默认 300px（可在设置面板中调整 80%–150%）。
 
-### 推荐素材规格
-
-```
-格式：PNG
-尺寸：≥ 1024 × 1024（或与原图比例一致的高清竖图）
-背景：透明
-色彩：sRGB
-```
-
-> 当前占位素材位于 `assets-reference/character-placeholder.png`（1280 × 1919），仅作开发参考，实际显示的是 `src/assets/` 下的副本。
-
----
 
 ## 配置存储（Local First）
 
@@ -131,7 +119,7 @@ src/assets/character-placeholder.png
 
 ```
 src/
-├── assets/            # 人物素材（替换这里）
+├── assets/            # 人物素材
 ├── components/        # Character / SpeechBubble / SettingsPanel
 ├── data/              # 台词（dialogues.ts）
 ├── hooks/             # useCharacterState / useIdleBehavior / useDialogue / useRapidClick
@@ -150,9 +138,6 @@ src-tauri/
 ├── capabilities/
 ├── tauri.conf.json
 └── Cargo.toml
-```
-
-职责划分：人物渲染 / 状态 / 互动逻辑 / 台词 / 配置 / 本地存储 / Tauri Window API 各自独立。
 
 ---
 
