@@ -3,7 +3,6 @@ import { emit } from "@tauri-apps/api/event";
 import { POSE_TABS } from "../config/looks";
 import { actionMenuItems } from "../config/characterActions";
 import { focusSession } from "../infrastructure/FocusSession";
-import { concertStore } from "../infrastructure/ConcertStore";
 
 /** Secondary windows reachable from the Jane right-click menu. */
 const MENU_ITEMS: { target: string; label: string }[] = [
@@ -146,12 +145,9 @@ export function JaneContextMenu({
 
   if (!open) return null;
 
-  // Re-computed each time the menu opens, so focus/concert gating is fresh.
+  // Re-computed each time the menu opens, so focus gating is fresh.
   const focusActive = focusSession.isActive();
-  const actions = actionMenuItems({
-    focus: focusActive,
-    concert: concertStore.isToday(),
-  });
+  const actions = actionMenuItems({ focus: focusActive });
   // During focus only the 专注 pool can be switched on screen — the other
   // tabs would just be ignored, so hide them entirely.
   const lookTabs = focusActive

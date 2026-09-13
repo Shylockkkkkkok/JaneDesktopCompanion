@@ -59,7 +59,7 @@ registerActionVideoUrl("比心", "/assets/heart.webm");
 assert.equal(resolveAction(getActionDef("heart")).asset.src, "/assets/heart.webm");
 
 // ── 3. Menu: hasAsset only where a URL is registered; generated from manifest ──
-const menu = actionMenuItems({ focus: false, concert: false });
+const menu = actionMenuItems({ focus: false });
 assert.equal(menu.length, CHARACTER_ACTIONS.length);
 assert.deepEqual(
   menu.filter((m) => m.available).map((m) => m.def.id),
@@ -67,12 +67,11 @@ assert.deepEqual(
 );
 assert.ok(menu.every((m) => m.def.label.length > 0));
 
-// ── 4. 门控：focus 全禁；concert 无 stage 动作 → 全禁 ──
+// ── 4. 门控：focus 全禁；其他状态全部可用 ──
 for (const def of CHARACTER_ACTIONS) {
-  assert.equal(isActionAllowed(def, { focus: true, concert: false }), false);
-  assert.equal(isActionAllowed(def, { focus: false, concert: true }), false);
+  assert.equal(isActionAllowed(def, { focus: true }), false);
 }
-assert.equal(isActionAllowed(getActionDef("heart"), { focus: false, concert: false }), true);
+assert.equal(isActionAllowed(getActionDef("heart"), { focus: false }), true);
 
 // ── 5. Video playback flow: play → progress → ended → onComplete ──
 let completed = 0;

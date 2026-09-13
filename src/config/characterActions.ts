@@ -124,23 +124,19 @@ export function resolveAction(def: CharacterActionDefinition): ResolvedCharacter
 export interface ActionGateContext {
   /** Focus session active — entertainment actions are blocked by default. */
   focus: boolean;
-  /** Concert Mode (Next Jane is today) — only stage-tagged actions run. */
-  concert: boolean;
 }
 
 /**
- * Pure priority gating. User actions beat scheduled behaviors, but special
- * system states restrict which actions make sense:
- *   focus   → all entertainment actions blocked (default policy)
- *   concert → only "stage"-tagged actions
- *   normal  → everything enabled
+ * Pure priority gating. User actions beat scheduled behaviors, but a focus
+ * session restricts entertainment actions:
+ *   focus  → all entertainment actions blocked (default policy)
+ *   normal → everything enabled
  */
 export function isActionAllowed(
-  def: CharacterActionDefinition,
+  _def: CharacterActionDefinition,
   ctx: ActionGateContext,
 ): boolean {
   if (ctx.focus) return false;
-  if (ctx.concert) return def.tags?.includes("stage") ?? false;
   return true;
 }
 

@@ -7,7 +7,7 @@ import { getActionDef, resolveAction } from "../config/characterActions";
 /**
  * One-shot action playback state machine (sequence frame ticking, video
  * lifecycle, loop, completion, interrupt rules). Pure playback — priority
- * gating (focus/concert) lives in config/characterActions + the callers;
+ * gating (focus) lives in config/characterActions + the callers;
  * base-state restore is done by the App via onComplete listeners.
  *
  *   sequence: play(id) → tick frames at fps → (loop ? forever : last frame) → complete
@@ -77,7 +77,7 @@ class ActionPlayer {
    *   "stopped"  — clicking the playing action toggled it off
    *   "unavailable" — unknown id / no valid asset
    *   "busy"     — current action is not interruptible
-   * Gating (focus/concert) is the caller's responsibility.
+   * Gating (focus) is the caller's responsibility.
    */
   play(id: string, opts?: { force?: boolean }): string {
     if (this.isPlaying(id)) {

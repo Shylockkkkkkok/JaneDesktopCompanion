@@ -16,8 +16,6 @@ export interface CharacterActionDefinition {
   enabled: boolean;
   /** Menu sort order (ascending, missing → last). */
   order?: number;
-  /** "stage" actions stay usable during Concert Mode. */
-  tags?: string[];
 }
 
 /** Which pipeline backs a resolved action. */

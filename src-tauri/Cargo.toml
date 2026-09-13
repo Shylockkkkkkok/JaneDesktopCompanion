@@ -1,6 +1,6 @@
 [package]
 name = "jane-desktop-companion"
-version = "1.0.0"
+version = "1.0.1"
 description = "JANE Desktop Companion"
 authors = ["JANE"]
 edition = "2021"

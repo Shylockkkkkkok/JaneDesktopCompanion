@@ -1,9 +1,10 @@
 # JANE 项目记忆 / 状态速查
 
-> 最后更新：2026-08-30（v1.0 已发布，由 opencode 维护，供后续会话快速恢复上下文）
+> 最后更新：2026-09-13（v1.0.1：移除 Concert 模式对动作/造型的限制，由 opencode 维护，供后续会话快速恢复上下文）
 
 ## 当前状态速览
 
+- **v1.0.1**：修复「下一次Jane面 = 当天」时动作菜单全部禁用、换造型不生效的问题——移除 `isActionAllowed` 的 concert/stage 门控、`ActionGateContext.concert`、`CharacterActionDefinition.tags`，以及 App 中所有 `concertStore.isToday()` 对 pose/look 的限制与 concert 造型覆盖（台词/倒计时/约会记录等功能保留）。Concert 模式现在对动作与造型无影响。
 - **v1.0 已发布**：`src-tauri\target\release\bundle\nsis\Dear Jane_1.0.0_x64-setup.exe`（74.6MB，NSIS per-user，未签名）
 - 用户机器上已安装并运行安装版（%LOCALAPPDATA%\Dear Jane），开发与安装版可并存
 - 安装包自带全部资源（47 PNG + 7 webm 动作 + focus_com + 台词全部内嵌主 exe），与开发目录完全无关（已实测：重命名素材目录应用不受影响、安装文件零开发路径字符串）

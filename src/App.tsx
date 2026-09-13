@@ -94,10 +94,8 @@ export default function App() {
   const [focusTimerHidden, setFocusTimerHidden] = useState(false);
   const [focusSetupOpen, setFocusSetupOpen] = useState(false);
   const [focusCompleteOpen, setFocusCompleteOpen] = useState(false);
-  // Look Switcher: snapshot version to re-render on base/lock/favorite changes,
-  // plus the concert-today flag so the temporary override is reactive.
+  // Look Switcher: snapshot version to re-render on base/lock/favorite changes.
   const [lookVersion, setLookVersion] = useState(0);
-  const [concertToday, setConcertToday] = useState(concertStore.isToday());
   // CharacterAction playback snapshot (renderer + debug panel).
   const [actionState, setActionState] = useState(actionPlayer.getState());
   // Video action calibration version (live scale/offset tuning).
@@ -128,17 +126,11 @@ export default function App() {
   const { bubble, showBubble, maybeHoverSay, maybeClickSay, sayRapid } =
     useDialogue(settings.dialogueFrequency);
 
-  // ── Look Switcher: base asset + temporary override ─────────
-  // Focus and Concert temporarily override the displayed asset; the base
-  // selection (LookSwitcherStore) is restored when they end. Exception: during
-  // a focus session the user may switch within the 专注 pool — the base asset
-  // is honored there too (pick() still requires category === pose).
-  const overrideActive = focusStatus !== "idle" || concertToday;
-  const preferredAssetId = overrideActive
-    ? focusStatus !== "idle"
-      ? lookSwitcher.getBaseAssetId()
-      : null
-    : lookSwitcher.getBaseAssetId();
+  // ── Look Switcher: base asset ─────────
+  // The base selection (LookSwitcherStore) pins the displayed asset. During a
+  // focus session the user may switch within the 专注 pool — the base asset is
+  // honored there too (pick() still requires category === pose).
+  const preferredAssetId = lookSwitcher.getBaseAssetId();
   const selectedPhoto = useAssetSelection(pose, lookId, preferredAssetId);
   // Rendering + window layout must agree on the vertical offset: a positive
   // calibration beyond the canvas's bottom padding would push the feet out
@@ -246,13 +238,7 @@ export default function App() {
 
   const applyBasePose = useCallback(() => {
     if (focusSession.isActive()) return;
-    // Temporary override: concert today uses the stage look.
-    if (concertStore.isToday() && assetLibrary.hasEnabled("concert")) {
-      setPose("concert");
-      setLookId("stage");
-      return;
-    }
-    // Normal: restore the user's base asset (Look Switcher), or auto-pick.
+    // Restore the user's base asset (Look Switcher), or auto-pick.
     const baseId = validBaseAsset(lookSwitcher.getBaseAssetId(), assetLibrary.getAll());
     const base = baseId ? assetLibrary.getById(baseId) : null;
     if (base) {
@@ -361,15 +347,11 @@ export default function App() {
 
   // ── Look Switcher effects ─────────────────────────────────
 
-  // React to store changes (base/lock/favorites) and concert-day rollover.
+  // React to store changes (base/lock/favorites).
   useEffect(() => {
     const unsubLook = lookSwitcher.subscribe(() => setLookVersion((v) => v + 1));
-    const unsubConcert = concertStore.subscribe(() =>
-      setConcertToday(concertStore.isToday()),
-    );
     return () => {
       unsubLook();
-      unsubConcert();
     };
   }, []);
 
@@ -384,7 +366,7 @@ export default function App() {
   // persisted base was removed or disabled, fall back to an available Daily
   // asset (this is the fallback path for keepLast startup too).
   useEffect(() => {
-    if (focusSession.isActive() || concertStore.isToday()) return;
+    if (focusSession.isActive()) return;
     const all = assetLibrary.getAll();
     const raw = lookSwitcher.getBaseAssetId();
     const valid = validBaseAsset(raw, all);
@@ -445,10 +427,8 @@ export default function App() {
     const asset = assetLibrary.getById(nextId);
     if (!asset) return;
     lookSwitcher.setBaseAsset(nextId);
-    if (!focusSession.isActive() && !concertStore.isToday()) {
-      setPose(asset.category);
-      setLookId(asset.lookId);
-    }
+    setPose(asset.category);
+    setLookId(asset.lookId);
   }, [photo, setPose, setLookId, showToast]);
 
   // Tray / right-click menu events for the Look Switcher.
@@ -504,10 +484,8 @@ export default function App() {
         }
         return;
       }
-      if (!concertStore.isToday()) {
-        setPose(asset.category);
-        setLookId(asset.lookId);
-      }
+      setPose(asset.category);
+      setLookId(asset.lookId);
       showToast(`已换${POSE_LABELS[asset.category]}造型`);
     }).then((fn) => {
       if (mounted) unPose = fn;
@@ -519,7 +497,7 @@ export default function App() {
       const asset = assetLibrary.getById(event.payload.assetId);
       if (!asset || !asset.enabled) return;
       lookSwitcher.setBaseAsset(asset.id);
-      if (!focusSession.isActive() && !concertStore.isToday()) {
+      if (!focusSession.isActive()) {
         setPose(asset.category);
         setLookId(asset.lookId);
       }
@@ -791,10 +769,9 @@ export default function App() {
     };
   }, [triggerReaction, showBubble]);
 
-  // Concert context → switch pose/look (stage look on "today").
+  // Restore the base look on mount.
   useEffect(() => {
     applyBasePose();
-    return concertStore.subscribe(applyBasePose);
   }, [applyBasePose]);
 
   // ── CharacterAction playback ──────────────────────────────
@@ -810,9 +787,9 @@ export default function App() {
         showToast("等一下下，马上好~");
         return;
       }
-      const gate = { focus: focusSession.isActive(), concert: concertStore.isToday() };
+      const gate = { focus: focusSession.isActive() };
       if (!isActionAllowed(def, gate)) {
-        showToast(gate.focus ? "专注期间先专心吧" : "这个动作等见面时再用吧");
+        showToast("专注期间先专心吧");
         return;
       }
       const result = actionPlayer.play(actionId);
