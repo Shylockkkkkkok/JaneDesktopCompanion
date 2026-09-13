@@ -5,7 +5,8 @@
 ## 当前状态速览
 
 - **v1.0.1**：修复「下一次Jane面 = 当天」时动作菜单全部禁用、换造型不生效的问题——移除 `isActionAllowed` 的 concert/stage 门控、`ActionGateContext.concert`、`CharacterActionDefinition.tags`，以及 App 中所有 `concertStore.isToday()` 对 pose/look 的限制与 concert 造型覆盖（台词/倒计时/约会记录等功能保留）。Concert 模式现在对动作与造型无影响。
-- **v1.0 已发布**：`src-tauri\target\release\bundle\nsis\Dear Jane_1.0.0_x64-setup.exe`（74.6MB，NSIS per-user，未签名）
+- **v1.0.1 已发布到 GitHub Release**：https://github.com/Shylockkkkkkok/JaneDesktopCompanion/releases/tag/v1.0.1 （资产 `Dear-Jane_1.0.1_x64-setup.exe`，74.6MB，NSIS per-user，未签名）。安装包不进 git（`.gitignore` 已加 `*.exe` / `installers/`），以后发版只走 Release。
+- **v1.0 历史产物**：`src-tauri\target\release\bundle\nsis\Dear Jane_1.0.0_x64-setup.exe`（同规格）
 - 用户机器上已安装并运行安装版（%LOCALAPPDATA%\Dear Jane），开发与安装版可并存
 - 安装包自带全部资源（47 PNG + 7 webm 动作 + focus_com + 台词全部内嵌主 exe），与开发目录完全无关（已实测：重命名素材目录应用不受影响、安装文件零开发路径字符串）
 
@@ -83,6 +84,13 @@ JANE 日常陪伴台词库 V1.md  # 台词库原文（迁移来源）
 21. **主动台词接线（Proactive Dialogue）**：time.*/activity.return.*/activity.longWork/rare.general/jane.meeting 此前已注册但无任何调用点（dead pools，pickIdle 写死 idle.general）。新 `infrastructure/ProactiveDialogueResolver.ts`（纯函数）：`timeDialogueKey`（morning/afternoon/evening 直用 TimeContext；night 按 hour 细分 23/0/1→lateNight、2/3/4→deepNight.rare）、`returnKeyFor`（<5min null、5–30min short、≥30min long）、`collectProactiveDialogueCandidates`（DialogueCandidate{key,priority,reason} 排序：return 90 > longWork 70 > time 60 > idle 40 > jane.meeting 20 > rare 10，jane.meeting 需 ConcertStore.hasUpcomingMeeting()）、`ContinuousActiveTracker`（连续活跃累计，idle≥5min 重置 session，单样本增量钳 60s）。UserActivityContext：捕获 away→active 一次性转换（pendingReturn={awayMs}，consumeReturn 消费即清）、tracker 接入 poll、markLongWorkNudged。App：`runProactiveDialogue(returnAwayMs)` 统一入口（§焦点/动作播放/气泡显示三个静默门 + 候选顺序请求引擎 + return 25%/longWork 35% 概率门 + 每轮最多 1 条），idleSpeak 分支与 userActivity 订阅（consumeReturn）都走它；focus 压制由 DialogueEngine 既有 FOCUS_SUPPRESSED_CATEGORIES 生效；recent/tone/cooldown 全部沿用引擎。jane.ts 数据里有 3 条重复 id "jane.meeting.10"（数据质量小疵，未改）。
 21.5 **专注态换装 + 完成奖励序列**：专注中"选择造型→专注"立即切换专注分类内随机造型（preferredAssetId 在 focus 时也生效，pick() 校验 category===pose）；**专注时选择造型子菜单只显示"专注"一项**（JaneContextMenu lookTabs 过滤）；"换一个"专注中在专注池内轮换。**专注完成奖励序列（v1.0 规范版）**：完成 → focus_com 弹窗（3s，期间保持专注造型）→ 弹窗关闭后人物本体独占显示 focus/focus_com.png 3s（FOCUS_CONFIG.completionPhotoMs=3000，经 action-sequence 层渲染单帧，独占视觉）→ `finishFocusComplete()`：随机普通姿势（未锁定→NORMAL_POSES 随机分类+该分类随机素材并 setBaseAsset；锁定→当前 look 分类内随机）→ behaviorScheduler.start()。取消/中止立即 applyBasePose+scheduler，不触发奖励图。§门：completionPhotoActive 期间 runProactiveDialogue/playCharacterAction 均拒绝；scheduler 在奖励期间保持 stop；startFocus 清理两个完成 timer+状态（防旧 timer 跨 session 触发）；一次 session 一次完成事件（onSessionEnd 事件驱动）。focus_com 几何分支在 resolveContentLayout（{0,0.0321,1,0.9679}）。资源经 Vite import 打包（focus/focus_com.png，无绝对路径）。另有：inline-block 基线空隙修复（.character__photo/.character__video display:block+line-height:0，此前整个图被行盒基线垫高 ~4px 导致头顶裁切）、defaultHeight 300→306。
 22. **v1.0 Release**：版本三方同步 1.0.0（tauri.conf.json/Cargo.toml/package.json）；bundle.windows.nsis.installMode="currentUser"（per-user 免管理员，装到 %LOCALAPPDATA%\Dear Jane）；webviewInstallMode=downloadBootstrapper（默认）。产物 `Dear Jane_1.0.0_x64-setup.exe`（74.6MB，前端全部内嵌进主 exe：47 PNG+7 webm+focus_com+台词，无外部资源文件）。审计：源码无绝对路径/无 localhost（devUrl 仅 dev）/无 console.log；Debug Panel+Asset Lab 仅 import.meta.env.DEV。安装测试（/S 静默）：装到 %LOCALAPPDATA%\Dear Jane，开始菜单快捷方式指向安装 exe；安装版启动 Title=Dear Jane；**重命名 Jane_pics/JaneActions/focus/src/dist 全部成功且应用不持句柄 + 安装文件零开发路径字符串**（关键验收）；卸载测试（uninstall.exe /S）目录/快捷方式/卸载注册表项全清；重装后用户配置（%APPDATA%\com.jane.companion）保留。已知：exe 名为 crate 名 jane-desktop-companion.exe（快捷方式/开始菜单显示 Dear Jane）；unsigned 安装包 SmartScreen 可能提示"更多信息→仍要运行"；主 exe 内嵌 Rust panic 路径字符串属编译信息非运行时依赖。
+23. **v1.0.1（Concert 限制修复 + GitHub Release 分发）**：
+   - **症状**：把「下一次Jane面」设为当天后，右键「动作」子菜单全部灰色不可点；「选择造型」点击只闪一下不换。
+   - **根因**：Concert 模式（`concertStore.isToday()`）——①`isActionAllowed` 只放行带 `stage` 标签的动作，而 7 个动作都没打标签 → 全部 disabled；②App 的 look 处理器有 `if (!concertStore.isToday())` 守卫，静默跳过 `setPose`/`setLookId`。
+   - **修复**：删除 concert/stage 门控（`ActionGateContext.concert`、`CharacterActionDefinition.tags`、`isActionAllowed` 的 concert 分支），App 中所有 `concertStore.isToday()` 对 pose/look 的限制、`concertToday` state+订阅、`applyBasePose` 的 concert 造型覆盖、`preferredAssetId` 的 concert 空值分支全部移除；动作门控只保留 `focus`。台词/倒计时/约会记录功能保留。`scripts/test-action.mjs` 断言同步更新。
+   - **验证**：`npx tsc --noEmit`、`test-action`/`test-look` 通过；Playwright 端到端（Vite dev + `__TAURI_INTERNALS__` 桩，参考 §20 的浏览器测试思路）在「concert=今天」下 7 动作全 enabled、换造型图片确实变更（`b3→s5`），正常模式无回归。
+   - **发行流程**：版本四方同步 1.0.1（package.json / Cargo.toml / tauri.conf.json / Cargo.lock）→ `npm run tauri build`（Rust release 首次全新编译 ~16min）→ NSIS 产物 `src-tauri/target/release/bundle/nsis/Dear Jane_1.0.1_x64-setup.exe` → 用 GitHub API 建 Release 并上传资产（**gh 未安装**；token 取自 `git credential fill` 的 `password=`，40 位；参考脚本 `%TEMP%\opencode\make-release.ps1`，注意 PS5.1 读无 BOM 脚本会把中文当 ANSI，故脚本保持纯 ASCII、中文经环境变量传入）。
+   - **git 卫生**：安装包一度误提交（`cf6594e`），已 `git rebase --onto fcc7d55 cf6594e` 丢弃该提交、`git tag -f v1.0.1 57a722f` 把 tag 移到新 main、`git push --force-with-lease origin main` + `--force origin v1.0.1`、`git reflog expire --expire=now --all` + `git gc --prune=now`，本地 `.git` 151.9MB→77.2MB。**教训：二进制发行物一律不进 git，只挂 Release。**
 
 ## 架构要点
 
@@ -116,7 +124,7 @@ CharacterPhotoView / CharacterAssetView（照片 cross-fade 或 static/sequence�
 - `src/hooks/useAssetSelection.ts`：pose+lookId+weight 选择照片
 - Asset Lab（dev-only）：浏览/预览/调 metadata
 
-## 运行 / 打包
+## 运行 / 打包 / 发布
 
 ```bash
 npm install          # 首次
@@ -125,8 +133,14 @@ npm run tauri build  # 打包（NSIS per-user，产物在 src-tauri/target/relea
 npm run build        # 仅前端 tsc + vite build
 ```
 
-Node 测试脚本（esbuild --loader:.png=dataurl 打包后运行）：`scripts/test-{action,look,timeline,window-bounds,proactive-dialogue}.mjs`。
-校验命令：`npx tsc --noEmit`（TS）、`cd src-tauri && cargo check`（Rust，镜像走 src-tauri/.cargo/config.toml→USTC）。
+**发布（GitHub Release，安装包不进 git）**：
+1. 版本号四处同步：`package.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`（本包条目）、`src-tauri/tauri.conf.json`。
+2. `npm run tauri build` → 得到 `src-tauri/target/release/bundle/nsis/Dear Jane_<ver>_x64-setup.exe`。
+3. 用 GitHub API 建 Release + 上传资产（**gh 未安装**）。鉴权：`git credential fill`（host=github.com）输出的 `password=` 即 token（40 位），用作 `Authorization: Bearer`。脚本模板 `%TEMP%\opencode\make-release.ps1`（纯 ASCII；中文经环境变量传入，避免 PS5.1 把无 BOM 脚本按 ANSI 解析）。Release 的 tag 建议指向 main HEAD，`target_commitish=main`。
+4. 备选：`winget`/`choco` 可用，可装 `gh` 后改用 `gh release create`。
+
+Node 测试脚本（esbuild --loader:.png=dataurl 打包后运行）：`scripts/test-{action,look,timeline,window-bounds,proactive-dialogue}.mjs`。注意这些 `.mjs` 直接 `import "../src/**/*.ts"`，用 `npx esbuild <test>.mjs --bundle --platform=node --format=esm --loader:.png=dataurl --outfile=<tmp> && node <tmp>` 运行。
+校验命令：`npx tsc --noEmit`（TS）、`cd src-tauri && cargo check`（Rust，镜像走 src-tauri/.cargo/config.toml→USTC；该目录被 gitignore，新克隆需自行补镜像配置）。
 
 ## 调试
 
@@ -143,6 +157,8 @@ Node 测试脚本（esbuild --loader:.png=dataurl 打包后运行）：`scripts/
 - 主 exe 文件名为 crate 名 jane-desktop-companion.exe（快捷方式显示 Dear Jane，无感知）
 - 动作 scale/offsetX/offsetY 校准数值尚待逐个目测调整（Debug 面板滑杆实时调，localStorage jane.action-video-cal.v1 持久化）
 - jane.ts 台词数据有 3 条重复 id "jane.meeting.10"（数据小疵，未改）
+- **发布相关**：本机 `gh` 未安装，Release 用 GitHub API + `git credential fill` 的 token；GitHub 对单文件 >50MB 只警告、>100MB 拒绝，故安装包绝不进 git（`.gitignore` 已挡 `*.exe`/`installers/`）。Release 资产名里的空格会被 GitHub 替换（已改为 `Dear-Jane_<ver>_x64-setup.exe`）。
+- `npm run tauri build` 后 `src-tauri/Cargo.toml` 有时被 Git 误判为 modified（实为 CRLF 归一化、diff 为空），`git checkout -- src-tauri/Cargo.toml` 即可清掉。
 
 ## 台词库原文中的疑似错字（已原样保留，未改）
 
